@@ -12,7 +12,6 @@ public class MotorPH_M2 {
     static double[] rates = new double[50];
     static int totalCount = 0;
 
-    // File Names
     static String empFileName = "EmployeeDetails.csv";
     static String attFileName = "AttendanceRecord.csv";
 
@@ -27,12 +26,12 @@ public class MotorPH_M2 {
         String pass = input.nextLine();
 
         if (pass.equals("12345") && (user.equals("employee") || user.equals("payroll_staff"))) {
-            System.out.println("\nLogin Successful. Welcome, " + user);
+            System.out.println("\nLogin Successful.");
             
             System.out.print("\nEnter Employee ID: ");
             String searchID = input.nextLine();
             
-            System.out.print("Enter Month Number (1-12): ");
+            System.out.print("Enter Month (1-12): ");
             String searchMonth = input.nextLine();
             if (searchMonth.length() == 1) searchMonth = "0" + searchMonth;
 
@@ -45,40 +44,29 @@ public class MotorPH_M2 {
             }
 
             if (index != -1) {
-                // Modified to ask for the cutoff type
-                System.out.print("Enter Cutoff (1 for 1st Cutoff, 2 for 2nd Cutoff): ");
-                int cutoff = input.nextInt();
-                executePayrollCalculation(searchID, names[index], rates[index], searchMonth, cutoff);
+                // Simplified prompt
+                System.out.print("Is this for 1st or 2nd cutoff? (Enter 1 or 2): ");
+                int cutoffNum = input.nextInt();
+                executePayrollCalculation(searchID, names[index], rates[index], searchMonth, cutoffNum);
             } else {
-                System.out.println("Error: Employee record not found.");
+                System.out.println("Employee ID not found.");
             }
         } else {
-            System.out.println("Access Denied: Invalid credentials.");
+            System.out.println("Invalid Login.");
         }
     }
 
     public static String findFilePath(String fileName) {
-        String[] possiblePaths = {
-            fileName,
-            "src/" + fileName,
-            "src/main/java/" + fileName
-        };
-
+        String[] possiblePaths = {fileName, "src/" + fileName, "src/main/java/" + fileName};
         for (String path : possiblePaths) {
-            if (new File(path).exists()) {
-                return path;
-            }
+            if (new File(path).exists()) return path;
         }
         return null;
     }
 
     public static void loadEmployeeRecords() {
         String path = findFilePath(empFileName);
-        
-        if (path == null) {
-            System.out.println("System Error: " + empFileName + " not found in project folders.");
-            return;
-        }
+        if (path == null) return;
 
         try (BufferedReader reader = new BufferedReader(new FileReader(path))) {
             String line;
@@ -93,92 +81,65 @@ public class MotorPH_M2 {
             }
             totalCount = i;
         } catch (Exception e) {
-            System.out.println("Error reading employee data.");
+            System.out.println("Error loading files.");
         }
     }
 
-    public static void executePayrollCalculation(String id, String name, double hourlyRate, String month, int cutoff) {
+    public static void executePayrollCalculation(String id, String name, double rate, String month, int period) {
         String path = findFilePath(attFileName);
-        double totalHours = 0;
-
-        if (path == null) {
-            System.out.println("System Error: " + attFileName + " not found.");
-            return;
-        }
+        double totalHrs = 0;
 
         try (BufferedReader br = new BufferedReader(new FileReader(path))) {
             br.readLine(); 
             String line;
             while ((line = br.readLine()) != null) {
                 String[] cols = line.split(",");
-                String logDate = cols[3].trim();
-                
-                if (cols[0].trim().equals(id) && logDate.startsWith(month + "/")) {
-                    LocalTime timeIn = normalizeTime(cols[4].trim());
-                    LocalTime timeOut = normalizeTime(cols[5].trim());
-                    
-                    long minutes = Duration.between(timeIn, timeOut).toMinutes();
-                    double dailyHours = (minutes / 60.0) - 1.0; 
-                    
-                    if (dailyHours > 0) {
-                        totalHours += dailyHours;
-                    }
+                if (cols[0].trim().equals(id) && cols[3].trim().startsWith(month + "/")) {
+                    LocalTime in = normalizeTime(cols[4].trim());
+                    LocalTime out = normalizeTime(cols[5].trim());
+                    long mins = Duration.between(in, out).toMinutes();
+                    double hours = (mins / 60.0) - 1.0; 
+                    if (hours > 0) totalHrs += hours;
                 }
             }
         } catch (Exception e) {
-            System.out.println("Error reading attendance records.");
+            System.out.println("Attendance Error.");
         }
 
-        // Apply Logic: Deductions based on one month gross salary
-        double monthlyGross = totalHours * hourlyRate;
-        double sss = 0, philhealth = 0, pagibig = 0, tax = 0;
+        // Logic based on teacher's rule
+        double fullMonthGross = totalHrs * rate;
+        double sss = 0, phil = 0, pagibig = 0, tax = 0;
 
-        // Apply deductions ONLY if it is the 2nd cutoff
-        if (cutoff == 2) {
-            sss = (monthlyGross > 24750) ? 1125 : monthlyGross * 0.045; 
-            philhealth = monthlyGross * 0.025;
-            pagibig = 100.00;
-            
-            // Tax calculation (Simplified placeholder for taxable income)
-            double taxableIncome = monthlyGross - (sss + philhealth + pagibig);
-            if (taxableIncome > 20833) {
-                tax = (taxableIncome - 20833) * 0.20;
-            }
+        // Only calculate deductions if it is the 2nd period
+        if (period == 2) {
+            // Simplified SSS logic
+            if (fullMonthGross > 24750) sss = 1125;
+            else sss = fullMonthGross * 0.045;
+
+            phil = fullMonthGross * 0.025;
+            pagibig = 100.0;
+
+            double taxable = fullMonthGross - (sss + phil + pagibig);
+            if (taxable > 20833) tax = (taxable - 20833) * 0.20;
         }
 
-        // Net Salary calculation
-        // For 1st cutoff, net is gross/2 (or however your specific payroll splits the gross)
-        // For 2nd cutoff, it's the remaining balance minus all monthly deductions
-        double currentPeriodGross = (cutoff == 1) ? (monthlyGross / 2) : (monthlyGross / 2);
-        double netSalary = currentPeriodGross - sss - philhealth - pagibig - tax;
+        // Divide gross by 2 to get current cutoff pay
+        double currentGross = fullMonthGross / 2;
+        double netPay = currentGross - (sss + phil + pagibig + tax);
 
-        System.out.println("\n------------------------------------");
-        System.out.println("       PAYROLL SUMMARY REPORT       ");
-        System.out.println("------------------------------------");
-        System.out.println("Employee Name:   " + name.toUpperCase());
-        System.out.println("Employee ID:     " + id);
-        System.out.println("Hourly Rate:     PHP " + String.format("%.2f", hourlyRate));
-        System.out.println("Total Hours:     " + String.format("%.2f", totalHours));
-        System.out.println("Cutoff:          " + (cutoff == 1 ? "1st Cutoff" : "2nd Cutoff"));
-        System.out.println("------------------------------------");
-        System.out.println("MONTHLY GROSS:   PHP " + String.format("%.2f", monthlyGross));
-        System.out.println("DEDUCTIONS (Applied on 2nd Cutoff):");
-        System.out.println("  SSS:           PHP " + String.format("%.2f", sss));
-        System.out.println("  PhilHealth:    PHP " + String.format("%.2f", philhealth));
-        System.out.println("  Pag-IBIG:      PHP " + String.format("%.2f", pagibig));
-        System.out.println("  Withholding Tax: PHP " + String.format("%.2f", tax));
-        System.out.println("------------------------------------");
-        System.out.println("NET SALARY:      PHP " + String.format("%.2f", netSalary));
-        System.out.println("------------------------------------");
+        System.out.println("\n--- Payroll Result ---");
+        System.out.println("Name: " + name);
+        System.out.println("ID: " + id);
+        System.out.println("Total Monthly Hours: " + totalHrs);
+        System.out.println("Full Monthly Gross: " + fullMonthGross);
+        System.out.println("Current Cutoff Gross: " + currentGross);
+        System.out.println("Deductions (SSS/Phil/Pag/Tax): " + (sss + phil + pagibig + tax));
+        System.out.println("NET PAY: " + netPay);
     }
 
-    public static LocalTime normalizeTime(String timeStr) {
-        if (timeStr.contains(":") && timeStr.indexOf(":") == 1) {
-            timeStr = "0" + timeStr;
-        }
-        if (timeStr.length() > 5) {
-            timeStr = timeStr.substring(0, 5);
-        }
-        return LocalTime.parse(timeStr);
+    public static LocalTime normalizeTime(String t) {
+        if (t.contains(":") && t.indexOf(":") == 1) t = "0" + t;
+        if (t.length() > 5) t = t.substring(0, 5);
+        return LocalTime.parse(t);
     }
 }

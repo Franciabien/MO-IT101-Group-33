@@ -20,6 +20,6 @@ The goal of the program is to demonstrate how payroll systems process employee d
 
 ---
 
-## Project Plan Link
+## Project Plan
 
 [Project Plan Link MO-IT101-Group-33](https://docs.google.com/spreadsheets/d/1GYnOs3h-kyZ43Jqj49oK8V4_g85ZKzxvj63zW-pQmEU/edit?gid=638087839#gid=638087839)

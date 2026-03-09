@@ -45,7 +45,10 @@ public class MotorPH_M2 {
             }
 
             if (index != -1) {
-                executePayrollCalculation(searchID, names[index], rates[index], searchMonth);
+                // Modified to ask for the cutoff type
+                System.out.print("Enter Cutoff (1 for 1st Cutoff, 2 for 2nd Cutoff): ");
+                int cutoff = input.nextInt();
+                executePayrollCalculation(searchID, names[index], rates[index], searchMonth, cutoff);
             } else {
                 System.out.println("Error: Employee record not found.");
             }
@@ -54,12 +57,11 @@ public class MotorPH_M2 {
         }
     }
 
-    // This helper function finds the file in multiple common NetBeans locations
     public static String findFilePath(String fileName) {
         String[] possiblePaths = {
-            fileName,                           // Root folder
-            "src/" + fileName,                  // src folder
-            "src/main/java/" + fileName         // NetBeans default package folder
+            fileName,
+            "src/" + fileName,
+            "src/main/java/" + fileName
         };
 
         for (String path : possiblePaths) {
@@ -67,7 +69,7 @@ public class MotorPH_M2 {
                 return path;
             }
         }
-        return null; // File not found in any common location
+        return null;
     }
 
     public static void loadEmployeeRecords() {
@@ -95,7 +97,7 @@ public class MotorPH_M2 {
         }
     }
 
-    public static void executePayrollCalculation(String id, String name, double hourlyRate, String month) {
+    public static void executePayrollCalculation(String id, String name, double hourlyRate, String month, int cutoff) {
         String path = findFilePath(attFileName);
         double totalHours = 0;
 
@@ -127,11 +129,28 @@ public class MotorPH_M2 {
             System.out.println("Error reading attendance records.");
         }
 
-        double grossSalary = totalHours * hourlyRate;
-        double sss = (grossSalary > 24750) ? 1125 : grossSalary * 0.045; 
-        double philhealth = grossSalary * 0.025;
-        double pagibig = 100.00;
-        double netSalary = grossSalary - sss - philhealth - pagibig;
+        // Apply Logic: Deductions based on one month gross salary
+        double monthlyGross = totalHours * hourlyRate;
+        double sss = 0, philhealth = 0, pagibig = 0, tax = 0;
+
+        // Apply deductions ONLY if it is the 2nd cutoff
+        if (cutoff == 2) {
+            sss = (monthlyGross > 24750) ? 1125 : monthlyGross * 0.045; 
+            philhealth = monthlyGross * 0.025;
+            pagibig = 100.00;
+            
+            // Tax calculation (Simplified placeholder for taxable income)
+            double taxableIncome = monthlyGross - (sss + philhealth + pagibig);
+            if (taxableIncome > 20833) {
+                tax = (taxableIncome - 20833) * 0.20;
+            }
+        }
+
+        // Net Salary calculation
+        // For 1st cutoff, net is gross/2 (or however your specific payroll splits the gross)
+        // For 2nd cutoff, it's the remaining balance minus all monthly deductions
+        double currentPeriodGross = (cutoff == 1) ? (monthlyGross / 2) : (monthlyGross / 2);
+        double netSalary = currentPeriodGross - sss - philhealth - pagibig - tax;
 
         System.out.println("\n------------------------------------");
         System.out.println("       PAYROLL SUMMARY REPORT       ");
@@ -140,12 +159,14 @@ public class MotorPH_M2 {
         System.out.println("Employee ID:     " + id);
         System.out.println("Hourly Rate:     PHP " + String.format("%.2f", hourlyRate));
         System.out.println("Total Hours:     " + String.format("%.2f", totalHours));
+        System.out.println("Cutoff:          " + (cutoff == 1 ? "1st Cutoff" : "2nd Cutoff"));
         System.out.println("------------------------------------");
-        System.out.println("GROSS SALARY:    PHP " + String.format("%.2f", grossSalary));
-        System.out.println("DEDUCTIONS:");
+        System.out.println("MONTHLY GROSS:   PHP " + String.format("%.2f", monthlyGross));
+        System.out.println("DEDUCTIONS (Applied on 2nd Cutoff):");
         System.out.println("  SSS:           PHP " + String.format("%.2f", sss));
         System.out.println("  PhilHealth:    PHP " + String.format("%.2f", philhealth));
         System.out.println("  Pag-IBIG:      PHP " + String.format("%.2f", pagibig));
+        System.out.println("  Withholding Tax: PHP " + String.format("%.2f", tax));
         System.out.println("------------------------------------");
         System.out.println("NET SALARY:      PHP " + String.format("%.2f", netSalary));
         System.out.println("------------------------------------");

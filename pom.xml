@@ -10,4 +10,5 @@
         <maven.compiler.release>25</maven.compiler.release>
         <exec.mainClass>com.mycompany.motorph_milestone2.MotorPH_Milestone2</exec.mainClass>
     </properties>
+    <name>MotorPH_TerminalAssessment</name>
 </project>
